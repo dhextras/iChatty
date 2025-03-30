@@ -1,45 +1,50 @@
+import type { LinksFunction, MetaFunction } from "@remix-run/node";
 import {
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useNavigation,
 } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
 
-import "./tailwind.css";
+import { generateMeta } from "~/utils/generateMeta";
+
+import "./styles/root.css";
 
 export const links: LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
+  { rel: "icon", href: "/favicon.ico" },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export const meta: MetaFunction = generateMeta("Home");
+
+export default function App() {
+  const navigation = useNavigation();
+  const isLoading = navigation.state === "loading";
+
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body>
-        {children}
+      <body className="bg-secondary text-textPrimary min-h-screen">
+        {/*
+         FIX: Create a proper header with menu later
+        <header className="bg-primary px-4 py-3 text-white">
+          <h1 className="text-xl font-semibold">I-Chatty</h1>
+        </header>
+        */}
+
+        <main
+          className={`transition-opacity duration-300 ${isLoading ? "opacity-50" : "opacity-100"}`}
+        >
+          <Outlet />
+        </main>
         <ScrollRestoration />
         <Scripts />
       </body>
     </html>
   );
-}
-
-export default function App() {
-  return <Outlet />;
 }

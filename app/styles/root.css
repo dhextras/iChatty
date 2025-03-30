@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+  --primary-color: 100, 123, 255; /* Blue */
+  --secondary-color: 245, 245, 255; /* Light background */
+  --text-primary-color: 34, 34, 34; /* Almost black */
+  --action-color: 121, 80, 242; /* Purple */
+  
+  /* Mood colors */
+  --positive-mood: 86, 214, 126; /* Green */
+  --neutral-mood: 255, 193, 69; /* Yellow */
+  --negative-mood: 244, 96, 96; /* Red */
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, rgb(121, 80, 242), rgb(100, 123, 255));
+}
+
