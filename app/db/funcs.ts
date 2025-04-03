@@ -12,6 +12,7 @@ export async function startChatSession(deviceId: string) {
     .insert({
       device_id: deviceId,
       start_time: new Date().toISOString(),
+      mood_score: 50, // Start with neutral mode
     })
     .select()
     .single();
@@ -39,25 +40,25 @@ export async function updateChatSession(
   sessionId: string,
   summary: string,
   mood_score: number,
+  mood_label: string,
 ) {
   // FIX: Im returning happy for all of it for now but later fix that and get it from the returned mood_score range
   // Also instead of calling the update every time just wait for like 30 min if there no other update call comes up we send it for that specific user if it comes we wait until there is no message for like net 30 min
   // every time new one comes we update the timer
-  const label = "happy";
   const { data, error } = await supabase
     .from("chat_sessions")
     .update({
       end_time: new Date().toISOString(),
       summary,
       mood_score,
-      mood_label: label,
+      mood_label,
     })
     .match({ id: sessionId })
     .select()
     .single();
 
   if (error) {
-    console.error("Error ending chat session:", error);
+    console.error("Error updating chat session:", error);
     return null;
   }
 

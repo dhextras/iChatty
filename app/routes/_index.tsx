@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { json, LoaderFunction, MetaFunction } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import {
+  json,
+  LoaderFunction,
+  ActionFunction,
+  MetaFunction,
+} from "@remix-run/node";
+import { useLoaderData, useFetcher } from "@remix-run/react";
 
 import SplashScreen from "~/components/SplashScreen";
 import ChatBox from "~/components/ChatComponents/ChatBox";
@@ -13,12 +18,32 @@ import {
 } from "~/db/funcs";
 import { generateMeta } from "~/utils/generateMeta";
 import { getOrCreateDeviceId, commitSession } from "~/utils/session.server";
+import { processMessageWithGPT } from "~/utils/chatGpt";
 
 type Message = {
   id: string;
   text: string;
   isBot: boolean;
   timestamp: Date;
+};
+
+type ChatSession = {
+  id: string;
+  device_id: string;
+  start_time: string;
+  end_time?: string;
+  summary?: string;
+  mood_score?: number;
+  mood_label?: string;
+};
+
+type ResponseData = {
+  botResponse: string;
+  summary: string;
+  mood: {
+    score: number;
+    label: string;
+  };
 };
 
 export const meta: MetaFunction = generateMeta("Chat");
@@ -29,8 +54,32 @@ export const loader: LoaderFunction = async ({ request }) => {
   await registerDevice(deviceId);
   await setDeviceIdForRequest(deviceId);
 
+  // FIXME: The problem with this is it comes from server but the hour is calculated
+  // in server so we gotta replace that with an function that way its on server but time is from client
+  const now = new Date();
+  const hour = now.getHours();
+
+  let greeting = "Hello";
+  if (hour < 12) greeting = "Good morning";
+  else if (hour < 18) greeting = "Good afternoon";
+  else greeting = "Good evening";
+
+  const initialMessage = {
+    id: "initial",
+    text: `${greeting}! How are you feeling today?`,
+    isBot: true,
+    timestamp: now.toISOString(),
+  };
+
+  console.log("too many loading");
+  // FIXME: For some fucking reason, there is alot of session getting started so handle that and only start it once maybe instead of just starting it in loader it would be maybe better to do that in the action dont know figure it out
+  const chatSession: ChatSession = await startChatSession(deviceId);
+
   return json(
-    { deviceId },
+    {
+      initialMessage,
+      chatSessionId: chatSession?.id || null,
+    },
     {
       headers: {
         "Set-Cookie": await commitSession(session),
@@ -39,39 +88,76 @@ export const loader: LoaderFunction = async ({ request }) => {
   );
 };
 
+export const action: ActionFunction = async ({ request }) => {
+  const formData = await request.formData();
+  const text = formData.get("message") as string;
+  const sessionId = formData.get("sessionId") as string;
+  const messagesJson = formData.get("messages") as string;
+
+  const messages = JSON.parse(messagesJson);
+  const result = await processMessageWithGPT(messages, text);
+
+  if (sessionId && result.summary && result.mood_score !== undefined) {
+    // await updateChatSession(
+    //   sessionId,
+    //   result.summary,
+    //   result.mood_score,
+    //   result.mood_label,
+    // );
+  }
+
+  return json({
+    botResponse: result.response,
+    summary: result.summary,
+    mood: {
+      score: result.mood_score,
+      label: result.mood_label,
+    },
+  });
+};
+
 export default function Index() {
-  const { deviceId } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setLoading] = useState<Boolean>(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { initialMessage, chatSessionId } = useLoaderData<typeof loader>();
 
-  // FIX: Move this to the server and get the greeting from the server
   useEffect(() => {
-    const now = new Date();
-    const hour = now.getHours();
-
-    let greeting = "Hello";
-    if (hour < 12) greeting = "Good morning";
-    else if (hour < 18) greeting = "Good afternoon";
-    else greeting = "Good evening";
-
-    const initialMessage: Message = {
-      id: "initial",
-      text: `${greeting}! How are you feeling today?`,
-      isBot: true,
-      timestamp: now,
+    const formattedInitialMessage = {
+      ...initialMessage,
+      timestamp: new Date(initialMessage.timestamp),
     };
 
-    setMessages([initialMessage]);
+    setMessages([formattedInitialMessage]);
 
     setTimeout(() => {
       setLoading(false);
-    }, 2000);
-  }, []);
+    }, 1500);
+  }, [initialMessage.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (fetcher.data) {
+      const data = fetcher.data as ResponseData;
+
+      const botMessage: Message = {
+        id: crypto.randomUUID(),
+        text: data.botResponse,
+        isBot: true,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, botMessage]);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  }, [fetcher.data]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -83,38 +169,23 @@ export default function Index() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
 
-    // For now, simulate bot response
-    // Later, we'll replace this with actual API call to GPT
-    // TODO: Handle this properly
-    setTimeout(() => {
-      const botMessage: Message = {
-        id: crypto.randomUUID(),
-        text: getSimpleResponse(text),
-        isBot: true,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, botMessage]);
-    }, 500);
-  };
-
-  // Simple response function - this will be replaced with GPT call
-  const getSimpleResponse = (text: string): string => {
-    const lowerText = text.toLowerCase();
-
-    if (lowerText.includes("hello") || lowerText.includes("hi")) {
-      return "Hello! How can I help you today?";
-    } else if (lowerText.includes("sad") || lowerText.includes("depressed")) {
-      return "I'm sorry to hear you're feeling down. Would you like to talk about what's bothering you?";
-    } else if (lowerText.includes("happy") || lowerText.includes("good")) {
-      return "I'm glad to hear you're doing well! What has been going well for you?";
-    } else if (lowerText.includes("anxious") || lowerText.includes("worried")) {
-      return "It sounds like you're experiencing some anxiety. Would it help to talk through what's on your mind?";
-    } else {
-      return "Thank you for sharing. Can you tell me more about how you're feeling?";
-    }
+    fetcher.submit(
+      {
+        message: text,
+        sessionId: chatSessionId || "",
+        messages: JSON.stringify(
+          updatedMessages.map((msg) => ({
+            text: msg.text,
+            isBot: msg.isBot,
+            timestamp: msg.timestamp.toISOString(),
+          })),
+        ),
+      },
+      { method: "post" },
+    );
   };
 
   return isLoading === true ? (
@@ -127,7 +198,11 @@ export default function Index() {
       </div>
 
       <div className="border-t border-gray-200 p-4">
-        <ChatInput onSendMessage={handleSendMessage} />
+        <ChatInput
+          ref={inputRef}
+          onSendMessage={handleSendMessage}
+          isDisabled={fetcher.state === "submitting"}
+        />
       </div>
     </div>
   );
