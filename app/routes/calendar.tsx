@@ -1,6 +1,6 @@
-import { json, LoaderFunction } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { json } from "@remix-run/node";
 import { useState, useEffect } from "react";
+import { useLoaderData } from "@remix-run/react";
 import {
   format,
   startOfMonth,
@@ -12,12 +12,15 @@ import {
   isSameDay,
   parseISO,
 } from "date-fns";
-import SessionList from "~/components/Calendar/SessionList";
+
 import MoodStats from "~/components/Calendar/MoodStats";
+import SessionList from "~/components/Calendar/SessionList";
 import { getChatSessions } from "~/db/funcs";
+import { generateMeta } from "~/utils/generateMeta";
 import { getOrCreateDeviceId } from "~/utils/session.server";
 
 import type { ChatSession } from "~/types/chat";
+import type { LoaderFunction, MetaFunction } from "@remix-run/node";
 import type { CalendarDateData, DateSessions } from "~/types/calendar";
 
 const getMoodColor = (score: number): string => {
@@ -113,6 +116,8 @@ const generateCalendarDates = (
 
   return calendarDates;
 };
+
+export const meta: MetaFunction = generateMeta("Calendar");
 
 export const loader: LoaderFunction = async ({ request }) => {
   const { deviceId } = await getOrCreateDeviceId(request);
