@@ -12,7 +12,9 @@ export async function startChatSession(deviceId: string) {
     .insert({
       device_id: deviceId,
       start_time: new Date().toISOString(),
+      end_time: new Date().toISOString(),
       mood_score: 50, // Start with neutral mode
+      summary: "User Is just started the converstation", // NOTE: Configure both as needed later on
     })
     .select()
     .single();
@@ -33,17 +35,13 @@ export async function startChatSession(deviceId: string) {
  * @param {number} mood_score - The mood score associated with the session.
  * @returns {Promise<object|null>} The updated session data or null on failure.
  *
- * @note Currently, mood label is set to "happy" by default. Future implementation should derive it dynamically.
- * @note Instead of updating immediately, consider batching updates every 30 minutes to optimize database calls.
  */
 export async function updateChatSession(
   sessionId: string,
   summary: string,
   mood_score: number,
-  mood_label: string,
 ) {
-  // FIX: Im returning happy for all of it for now but later fix that and get it from the returned mood_score range
-  // Also instead of calling the update every time just wait for like 30 min if there no other update call comes up we send it for that specific user if it comes we wait until there is no message for like net 30 min
+  // FIXME: Also instead of calling the update every time just wait for like 30 min if there no other update call comes up we send it for that specific user if it comes we wait until there is no message for like net 30 min
   // every time new one comes we update the timer
   const { data, error } = await supabase
     .from("chat_sessions")
@@ -51,7 +49,6 @@ export async function updateChatSession(
       end_time: new Date().toISOString(),
       summary,
       mood_score,
-      mood_label,
     })
     .match({ id: sessionId })
     .select()
@@ -71,7 +68,6 @@ export async function updateChatSession(
  * @param {string} deviceId - The unique device identifier.
  * @param {string} sessionId - The chat session identifier.
  * @param {number} moodScore - The recorded mood score.
- * @param {string} moodLabel - The label associated with the mood score.
  * @param {string} [note] - An optional note for the mood entry.
  * @returns {Promise<object|null>} The saved mood entry or null on failure.
  */
@@ -79,7 +75,6 @@ export async function saveMoodEntry(
   deviceId: string,
   sessionId: string,
   moodScore: number,
-  moodLabel: string,
   note?: string,
 ) {
   const { data, error } = await supabase
@@ -88,7 +83,6 @@ export async function saveMoodEntry(
       device_id: deviceId,
       session_id: sessionId,
       mood_score: moodScore,
-      mood_label: moodLabel,
       note,
     })
     .select()
@@ -121,7 +115,7 @@ export async function registerDevice(deviceId: string) {
   // If the device doesn't exist, create it
   if (updateError && updateError.code === "PGRST116") {
     console.error(
-      `Failed to update register device ${deviceId} trying to create one:`,
+      `Failed to update device ${deviceId} trying to create one:`,
       updateError,
     );
     const { data: newDevice, error: insertError } = await supabase
@@ -160,4 +154,24 @@ export async function setDeviceIdForRequest(deviceId: string) {
     console.error("Failed to set device ID claim:", error);
     return false;
   }
+}
+
+/**
+ * Get All the Session Data for the specified user
+ *
+ * @param {string} deviceId - The unique device identifier.
+ * @returns {Promise<object|null>} The updated session data or null on failure.
+ *
+ */
+export async function getChatSessions(deviceId: string) {
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .select()
+    .match({ device_id: deviceId });
+  if (error) {
+    console.error("Error getting chat sessions:", error);
+    return null;
+  }
+
+  return data;
 }

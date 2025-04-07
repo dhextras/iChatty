@@ -29,7 +29,6 @@ export interface Database {
           end_time: string | null;
           summary: string | null;
           mood_score: number;
-          mood_label: string | null;
         };
         Insert: {
           id?: string;
@@ -38,7 +37,6 @@ export interface Database {
           end_time?: string | null;
           summary?: string | null;
           mood_score: number;
-          mood_label?: string | null;
         };
         Update: {
           id?: string;
@@ -47,7 +45,6 @@ export interface Database {
           end_time?: string | null;
           summary?: string | null;
           mood_score?: number;
-          mood_label?: string | null;
         };
       };
     };

@@ -15,6 +15,7 @@ import {
   setDeviceIdForRequest,
   startChatSession,
   updateChatSession,
+  getChatSessions,
 } from "~/db/funcs";
 import { generateMeta } from "~/utils/generateMeta";
 import { getOrCreateDeviceId, commitSession } from "~/utils/session.server";
@@ -34,7 +35,6 @@ type ChatSession = {
   end_time?: string;
   summary?: string;
   mood_score?: number;
-  mood_label?: string;
 };
 
 type ResponseData = {
@@ -42,16 +42,24 @@ type ResponseData = {
   summary: string;
   mood: {
     score: number;
-    label: string;
   };
 };
 
 export const meta: MetaFunction = generateMeta("Chat");
 
 export const loader: LoaderFunction = async ({ request }) => {
+  const headers = request.headers;
+  const isPageRequest = headers.get("Accept")?.includes("text/html");
+
+  if (!isPageRequest) {
+    return json({});
+  }
+
   const { deviceId, session } = await getOrCreateDeviceId(request);
 
   await registerDevice(deviceId);
+  const data = await getChatSessions(deviceId);
+  console.log(data);
   await setDeviceIdForRequest(deviceId);
 
   // FIXME: The problem with this is it comes from server but the hour is calculated
@@ -71,8 +79,6 @@ export const loader: LoaderFunction = async ({ request }) => {
     timestamp: now.toISOString(),
   };
 
-  console.log("too many loading");
-  // FIXME: For some fucking reason, there is alot of session getting started so handle that and only start it once maybe instead of just starting it in loader it would be maybe better to do that in the action dont know figure it out
   const chatSession: ChatSession = await startChatSession(deviceId);
 
   return json(
@@ -98,11 +104,11 @@ export const action: ActionFunction = async ({ request }) => {
   const result = await processMessageWithGPT(messages, text);
 
   if (sessionId && result.summary && result.mood_score !== undefined) {
+    // TODO: Gotta update the session every 5 min or something when there is nothing came
     // await updateChatSession(
     //   sessionId,
     //   result.summary,
     //   result.mood_score,
-    //   result.mood_label,
     // );
   }
 
@@ -111,7 +117,6 @@ export const action: ActionFunction = async ({ request }) => {
     summary: result.summary,
     mood: {
       score: result.mood_score,
-      label: result.mood_label,
     },
   });
 };
@@ -122,20 +127,24 @@ export default function Index() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setLoading] = useState<Boolean>(true);
-  const { initialMessage, chatSessionId } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    const formattedInitialMessage = {
-      ...initialMessage,
-      timestamp: new Date(initialMessage.timestamp),
-    };
+    if (loaderData.initialMessage && loaderData.chatSessionId) {
+      const formattedInitialMessage = {
+        ...loaderData.initialMessage,
+        timestamp: new Date(loaderData.initialMessage.timestamp),
+      };
 
-    setMessages([formattedInitialMessage]);
+      setMessages([formattedInitialMessage]);
+      setSessionId(loaderData.chatSessionId);
 
-    setTimeout(() => {
-      setLoading(false);
-    }, 1500);
-  }, [initialMessage.id]);
+      setTimeout(() => {
+        setLoading(false);
+      }, 1500);
+    }
+  }, [loaderData.initialMessage?.id, loaderData.chatSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -175,7 +184,7 @@ export default function Index() {
     fetcher.submit(
       {
         message: text,
-        sessionId: chatSessionId || "",
+        sessionId: sessionId || "",
         messages: JSON.stringify(
           updatedMessages.map((msg) => ({
             text: msg.text,
@@ -191,7 +200,7 @@ export default function Index() {
   return isLoading === true ? (
     <SplashScreen />
   ) : (
-    <div className="bg-secondary flex h-screen flex-col">
+    <div className="flex h-screen flex-col bg-secondary">
       <div className="flex-1 overflow-y-auto p-4">
         <ChatBox messages={messages} />
         <div ref={messagesEndRef} />

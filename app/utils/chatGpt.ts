@@ -15,13 +15,12 @@ export async function processMessageWithGPT(
   const response = getSimpleResponse(latestMessage);
   const summary = generateConversationSummary(messages, latestMessage);
 
-  const { score, label } = analyzeMood(messages, latestMessage);
+  const { score } = analyzeMood(latestMessage);
 
   return {
     response,
     summary,
     mood_score: score,
-    mood_label: label,
   };
 }
 
@@ -96,16 +95,12 @@ function generateConversationSummary(
 
 /**
  * Analyzes the mood of the conversation based on the messages
- * Returns a score (0-100) and a label
+ * Returns a score (0-100)
  */
-function analyzeMood(
-  messages: any[],
-  latestMessage: string,
-): { score: number; label: string } {
+function analyzeMood(latestMessage: string): { score: number } {
   const userText = latestMessage.toLowerCase();
 
   let score = 50;
-  let label = "neutral";
 
   const positiveWords = [
     "happy",
@@ -137,17 +132,5 @@ function analyzeMood(
 
   score = Math.max(0, Math.min(100, score));
 
-  if (score >= 75) {
-    label = "happy";
-  } else if (score >= 60) {
-    label = "content";
-  } else if (score >= 40) {
-    label = "neutral";
-  } else if (score >= 25) {
-    label = "sad";
-  } else {
-    label = "distressed";
-  }
-
-  return { score, label };
+  return { score };
 }
