@@ -28,6 +28,7 @@ export const { getSession, commitSession, destroySession } = sessionStorage;
  */
 export async function getOrCreateDeviceId(
   request: Request,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<{ deviceId: string; session: any }> {
   const session = await getSession(request.headers.get("Cookie"));
 

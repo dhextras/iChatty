@@ -1,12 +1,17 @@
 import { supabase } from "./auth";
 
+import type { Device } from "~/types/index";
+import type { ChatSession } from "~/types/chat";
+
 /**
  * Starts a new chat session and records its start time.
  *
  * @param {string} deviceId - The unique device identifier.
- * @returns {Promise<object|null>} The created chat session data or null on failure.
+ * @returns {Promise<ChatSession|null>} The created chat session data or null on failure.
  */
-export async function startChatSession(deviceId: string) {
+export async function startChatSession(
+  deviceId: string,
+): Promise<ChatSession | null> {
   const { data, error } = await supabase
     .from("chat_sessions")
     .insert({
@@ -33,16 +38,17 @@ export async function startChatSession(deviceId: string) {
  * @param {string} sessionId - The chat session identifier.
  * @param {string} summary - A summary of the chat session.
  * @param {number} mood_score - The mood score associated with the session.
- * @returns {Promise<object|null>} The updated session data or null on failure.
+ * @returns {Promise<ChatSession|null>} The updated session data or null on failure.
  *
  */
 export async function updateChatSession(
   sessionId: string,
   summary: string,
   mood_score: number,
-) {
+): Promise<ChatSession | null> {
   // FIXME: Also instead of calling the update every time just wait for like 30 min if there no other update call comes up we send it for that specific user if it comes we wait until there is no message for like net 30 min
   // every time new one comes we update the timer
+  // Or store all the ones that comes for each diff session id the every 30 min update the latest one something like that
   const { data, error } = await supabase
     .from("chat_sessions")
     .update({
@@ -63,53 +69,19 @@ export async function updateChatSession(
 }
 
 /**
- * Saves a mood entry linked to a chat session.
- *
- * @param {string} deviceId - The unique device identifier.
- * @param {string} sessionId - The chat session identifier.
- * @param {number} moodScore - The recorded mood score.
- * @param {string} [note] - An optional note for the mood entry.
- * @returns {Promise<object|null>} The saved mood entry or null on failure.
- */
-export async function saveMoodEntry(
-  deviceId: string,
-  sessionId: string,
-  moodScore: number,
-  note?: string,
-) {
-  const { data, error } = await supabase
-    .from("mood_entries")
-    .insert({
-      device_id: deviceId,
-      session_id: sessionId,
-      mood_score: moodScore,
-      note,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error saving mood entry:", error);
-    return null;
-  }
-
-  return data;
-}
-
-/**
  * Registers a device by updating its last seen timestamp or creating a new record if it doesn’t exist.
  *
  * @param {string} deviceId - The unique device identifier.
- * @returns {Promise<object|null>} The device record or null on failure.
+ * @returns {Promise<Device|null>} The device record or null on failure.
  *
  * @note If the device is not found, a new record is created instead of updating.
  */
-export async function registerDevice(deviceId: string) {
+export async function registerDevice(deviceId: string): Promise<Device | null> {
   const { data: existingDevice, error: updateError } = await supabase
     .from("devices")
     .update({ last_seen: new Date().toISOString() })
     .match({ device_id: deviceId })
-    .select("id")
+    .select("*")
     .single();
 
   // If the device doesn't exist, create it
@@ -121,7 +93,7 @@ export async function registerDevice(deviceId: string) {
     const { data: newDevice, error: insertError } = await supabase
       .from("devices")
       .insert({ device_id: deviceId })
-      .select("id")
+      .select("*")
       .single();
 
     if (insertError) {
@@ -146,7 +118,9 @@ export async function registerDevice(deviceId: string) {
  * @param {string} deviceId - The unique device identifier.
  * @returns {Promise<boolean>} True if the operation was successful, otherwise false.
  */
-export async function setDeviceIdForRequest(deviceId: string) {
+export async function setDeviceIdForRequest(
+  deviceId: string,
+): Promise<boolean> {
   try {
     await supabase.rpc("set_device_id_claim", { device_id: deviceId });
     return true;
@@ -160,13 +134,15 @@ export async function setDeviceIdForRequest(deviceId: string) {
  * Get All the Session Data for the specified user
  *
  * @param {string} deviceId - The unique device identifier.
- * @returns {Promise<object|null>} The updated session data or null on failure.
+ * @returns {Promise<ChatSession[]|null>} The updated session data or null on failure.
  *
  */
-export async function getChatSessions(deviceId: string) {
+export async function getChatSessions(
+  deviceId: string,
+): Promise<ChatSession[] | null> {
   const { data, error } = await supabase
     .from("chat_sessions")
-    .select()
+    .select("*")
     .match({ device_id: deviceId });
   if (error) {
     console.error("Error getting chat sessions:", error);

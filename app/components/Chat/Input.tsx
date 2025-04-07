@@ -1,4 +1,4 @@
-import React, { useState, forwardRef } from "react";
+import { useState, forwardRef } from "react";
 
 type ChatInputProps = {
   onSendMessage: (text: string) => void;
@@ -25,12 +25,12 @@ const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Type your message..."
-          className="focus:ring-primary flex-1 rounded-full border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2"
+          className="flex-1 rounded-full border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
           disabled={isDisabled}
         />
         <button
           type="submit"
-          className={`bg-primary rounded-full p-2 text-white transition-colors hover:bg-opacity-90 ${
+          className={`rounded-full bg-primary p-2 text-white transition-colors hover:bg-opacity-90 ${
             isDisabled
               ? "cursor-not-allowed opacity-50"
               : "hover:bg-primary-dark"
@@ -56,5 +56,7 @@ const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
     );
   },
 );
+
+ChatInput.displayName = "ChatInput";
 
 export default ChatInput;

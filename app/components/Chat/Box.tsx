@@ -1,12 +1,6 @@
-import React from "react";
-import ChatMessage from "./ChatMessage";
+import ChatMessage from "./Message";
 
-type Message = {
-  id: string;
-  text: string;
-  isBot: boolean;
-  timestamp: Date;
-};
+import type { Message } from "~/types/chat";
 
 type ChatBoxProps = {
   messages: Message[];

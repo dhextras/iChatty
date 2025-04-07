@@ -8,42 +8,19 @@ import {
 import { useLoaderData, useFetcher } from "@remix-run/react";
 
 import SplashScreen from "~/components/SplashScreen";
-import ChatBox from "~/components/ChatComponents/ChatBox";
-import ChatInput from "~/components/ChatComponents/ChatInput";
+import ChatBox from "~/components/Chat/Box";
+import ChatInput from "~/components/Chat/Input";
 import {
   registerDevice,
   setDeviceIdForRequest,
   startChatSession,
   updateChatSession,
-  getChatSessions,
 } from "~/db/funcs";
 import { generateMeta } from "~/utils/generateMeta";
 import { getOrCreateDeviceId, commitSession } from "~/utils/session.server";
 import { processMessageWithGPT } from "~/utils/chatGpt";
 
-type Message = {
-  id: string;
-  text: string;
-  isBot: boolean;
-  timestamp: Date;
-};
-
-type ChatSession = {
-  id: string;
-  device_id: string;
-  start_time: string;
-  end_time?: string;
-  summary?: string;
-  mood_score?: number;
-};
-
-type ResponseData = {
-  botResponse: string;
-  summary: string;
-  mood: {
-    score: number;
-  };
-};
+import type { Message, ResponseData } from "~/types/chat";
 
 export const meta: MetaFunction = generateMeta("Chat");
 
@@ -58,8 +35,6 @@ export const loader: LoaderFunction = async ({ request }) => {
   const { deviceId, session } = await getOrCreateDeviceId(request);
 
   await registerDevice(deviceId);
-  const data = await getChatSessions(deviceId);
-  console.log(data);
   await setDeviceIdForRequest(deviceId);
 
   // FIXME: The problem with this is it comes from server but the hour is calculated
@@ -79,7 +54,7 @@ export const loader: LoaderFunction = async ({ request }) => {
     timestamp: now.toISOString(),
   };
 
-  const chatSession: ChatSession = await startChatSession(deviceId);
+  const chatSession = await startChatSession(deviceId);
 
   return json(
     {
@@ -126,7 +101,7 @@ export default function Index() {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setLoading] = useState<Boolean>(true);
+  const [isLoading, setLoading] = useState<boolean>(true);
   const loaderData = useLoaderData<typeof loader>();
   const [sessionId, setSessionId] = useState<string | null>(null);
 
@@ -144,7 +119,7 @@ export default function Index() {
         setLoading(false);
       }, 1500);
     }
-  }, [loaderData.initialMessage?.id, loaderData.chatSessionId]);
+  }, [loaderData.initialMessage?.id, loaderData.chatSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
