@@ -3,6 +3,17 @@ import { supabase } from "./auth";
 import type { Device } from "~/types/index";
 import type { ChatSession } from "~/types/chat";
 
+const UPDATE_DELAY = 30 * 60 * 1000; // NOTE: Flushing time can be configure here
+
+const pendingSessionUpdates = new Map<
+  string,
+  {
+    summary: string;
+    mood_score: number;
+    timer: NodeJS.Timeout;
+  }
+>();
+
 /**
  * Starts a new chat session and records its start time.
  *
@@ -33,39 +44,75 @@ export async function startChatSession(
 }
 
 /**
- * Updates an existing chat session with an end time, summary, and mood score.
- *
- * @param {string} sessionId - The chat session identifier.
- * @param {string} summary - A summary of the chat session.
- * @param {number} mood_score - The mood score associated with the session.
- * @returns {Promise<ChatSession|null>} The updated session data or null on failure.
- *
+ * Queue a chat session update that will be applied after a period of inactivity
+ * @param sessionId The ID of the chat session to update
+ * @param summary The chat summary to set
+ * @param mood_score The mood score to set
+ * @returns Promise that resolves to the updated chat session or null if error
  */
 export async function updateChatSession(
   sessionId: string,
   summary: string,
   mood_score: number,
-): Promise<ChatSession | null> {
-  // FIXME: Also instead of calling the update every time just wait for like 30 min if there no other update call comes up we send it for that specific user if it comes we wait until there is no message for like net 30 min
-  // every time new one comes we update the timer
-  // Or store all the ones that comes for each diff session id the every 30 min update the latest one something like that
-  const { data, error } = await supabase
-    .from("chat_sessions")
-    .update({
-      end_time: new Date().toISOString(),
-      summary,
-      mood_score,
-    })
-    .match({ id: sessionId })
-    .select()
-    .single();
+): Promise<void> {
+  if (pendingSessionUpdates.has(sessionId)) {
+    clearTimeout(pendingSessionUpdates.get(sessionId)!.timer);
+  }
 
-  if (error) {
-    console.error("Error updating chat session:", error);
+  const timer = setTimeout(async () => {
+    console.log(`Flushing queued session: ${sessionId}`);
+    await applySessionUpdate(sessionId);
+  }, UPDATE_DELAY);
+
+  pendingSessionUpdates.set(sessionId, {
+    summary,
+    mood_score,
+    timer,
+  });
+
+  console.log(
+    `Update queued for session ${sessionId}, will apply after ${UPDATE_DELAY / 1000 / 60} minutes of inactivity`,
+  );
+}
+
+/**
+ * Apply a pending update to the database
+ * @param sessionId The ID of the chat session to update
+ * @returns Promise that resolves to the updated chat session or null if error
+ */
+async function applySessionUpdate(
+  sessionId: string,
+): Promise<ChatSession | null> {
+  if (!pendingSessionUpdates.has(sessionId)) {
+    console.warn(`No pending update found for session ${sessionId}`);
     return null;
   }
 
-  return data;
+  const { summary, mood_score } = pendingSessionUpdates.get(sessionId)!;
+
+  try {
+    const { data, error } = await supabase
+      .from("chat_sessions")
+      .update({
+        end_time: new Date().toISOString(),
+        summary,
+        mood_score,
+      })
+      .match({ id: sessionId })
+      .select()
+      .single();
+
+    if (error) {
+      console.error(`Error updating chat session ${sessionId}:`, error);
+      return null;
+    }
+
+    pendingSessionUpdates.delete(sessionId);
+    return data;
+  } catch (err) {
+    console.error(`Exception updating chat session ${sessionId}:`, err);
+    return null;
+  }
 }
 
 /**
