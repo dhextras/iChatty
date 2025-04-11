@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useNavigate } from "@remix-run/react";
 import { json } from "@remix-run/node";
 
 import SplashScreen from "~/components/SplashScreen";

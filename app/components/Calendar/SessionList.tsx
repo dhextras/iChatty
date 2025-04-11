@@ -47,7 +47,9 @@ const SessionList = ({ sessions }: SessionListProps) => {
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">
                 {format(startTime, "h:mm a")}
-                {endTime && ` - ${format(endTime, "h:mm a")}`}
+                {endTime && endTime !== "In progress"
+                  ? ` - ${format(endTime, "h:mm a")}`
+                  : ` - ${endTime}`}
               </span>
               <span
                 className={`inline-block w-12 rounded-full px-2 text-center text-sm ${getMoodColor(session.mood_score || 0)} text-white`}

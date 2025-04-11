@@ -170,14 +170,13 @@ export default function Calendar() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
-      {/* Mobile navigation */}
+    <div className="flex flex-grow flex-col overflow-auto">
       <div className="md:hidden">
         {view === "sessions" && selectedDate && (
           <div className="flex items-center justify-between bg-white p-4 shadow">
             <button
               onClick={handleBackToCalendar}
-              className="rounded-lg bg-blue-100 px-3 py-1 text-blue-700"
+              className="rounded-lg bg-action px-3 py-1 text-gray-800"
             >
               Back
             </button>
@@ -186,7 +185,6 @@ export default function Calendar() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Calendar Section - Hide on mobile when in sessions view */}
         <div
           className={`${
             view === "sessions" ? "hidden md:flex" : "flex"
@@ -229,9 +227,9 @@ export default function Calendar() {
                 }}
                 className={`relative cursor-pointer rounded-lg p-1 transition-all ${dateData.isCurrentMonth ? "bg-white" : "bg-gray-100"} ${
                   selectedDate && isSameDay(dateData.date, selectedDate)
-                    ? "ring-2 ring-blue-500"
+                    ? "ring-2 ring-[#DCD0FF]"
                     : ""
-                } `}
+                } hover:bg-secondary`}
                 onClick={() => handleDateClick(dateData.date)}
               >
                 <div className="mb-1 flex items-center justify-between">
@@ -242,7 +240,7 @@ export default function Calendar() {
                   </span>
 
                   {dateData.sessions.length > 0 && (
-                    <span className="rounded-full bg-blue-500 px-1 text-xs text-white">
+                    <span className="rounded-full bg-[#DCD0FF] px-1 text-xs text-gray-800">
                       {dateData.sessions.length}
                     </span>
                   )}
@@ -259,7 +257,6 @@ export default function Calendar() {
           </div>
         </div>
 
-        {/* Details Section - Show on mobile only when in sessions view */}
         <div
           className={`${
             view === "calendar" ? "hidden md:block" : "block"

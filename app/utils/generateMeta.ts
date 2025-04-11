@@ -5,7 +5,7 @@
  */
 export function generateMeta(title: string) {
   return () => [
-    { title: `${title} | I-Chatty` },
+    { title: `${title} | iChatty` },
     {
       name: "description",
       content:

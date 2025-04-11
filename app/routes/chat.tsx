@@ -4,6 +4,7 @@ import { useLoaderData, useFetcher } from "@remix-run/react";
 
 import ChatBox from "~/components/Chat/Box";
 import ChatInput from "~/components/Chat/Input";
+import TypingIndicator from "~/components/Chat/TypingIndicator";
 import {
   registerDevice,
   startChatSession,
@@ -68,7 +69,7 @@ export const action: ActionFunction = async ({ request }) => {
   const result = await processMessageWithGPT(messages, text);
 
   if (sessionId && result.summary && result.mood_score !== undefined) {
-    // await updateChatSession(sessionId, result.summary, result.mood_score);
+    await updateChatSession(sessionId, result.summary, result.mood_score);
   }
 
   return json({
@@ -87,6 +88,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const loaderData = useLoaderData<typeof loader>();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     if (loaderData.initialMessage && loaderData.chatSessionId) {
@@ -112,14 +114,17 @@ export default function Chat() {
       setMessages([formattedInitialMessage]);
       setSessionId(loaderData.chatSessionId);
     }
-  }, [loaderData.initialMessage?.id, loaderData.chatSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loaderData.initialMessage?.id, loaderData.chatSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   useEffect(() => {
-    if (fetcher.data) {
+    if (fetcher.state === "submitting") {
+      setIsTyping(true);
+    } else if (fetcher.data && fetcher.state === "loading") {
+      setIsTyping(false);
       const data = fetcher.data as ResponseData;
 
       const botMessage: Message = {
@@ -134,7 +139,7 @@ export default function Chat() {
         inputRef.current.focus();
       }
     }
-  }, [fetcher.data]);
+  }, [fetcher.state, fetcher.data]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -166,13 +171,18 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-secondary">
+    <div className="flex flex-grow flex-col overflow-auto">
       <div className="flex-1 overflow-y-auto p-4">
         <ChatBox messages={messages} />
+        {isTyping && (
+          <div className="ml-2 mt-4">
+            <TypingIndicator />
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-gray-200 bg-white p-4">
         <ChatInput
           ref={inputRef}
           onSendMessage={handleSendMessage}

@@ -10,11 +10,8 @@ export default {
         secondary: "rgb(var(--secondary-color))",
         action: "rgb(var(--action-color))",
       },
-      boxShadow: {
-        neumorphism: "var(--neumorphism-box-shadow)",
-        neumorphismInset: "var(--neumorphism-inset-box-shadow)",
-      },
       animation: {
+        typing: "typingBounce 1s infinite",
         slideup: "slideup 1s ease-in-out",
         slidedown: "slidedown 1s ease-in-out",
         slideleft: "slideleft 1s ease-in-out",
@@ -47,6 +44,14 @@ export default {
           "0%": { transform: "scale(0)" },
           "50%": { transform: "scale(1)" },
           "100%": { transform: "scale(0)" },
+        },
+        typingBounce: {
+          "0%, 100%": {
+            transform: "translateY(0)",
+          },
+          "50%": {
+            transform: "translateY(-8px)",
+          },
         },
       },
       fontFamily: {
