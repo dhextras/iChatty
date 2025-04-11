@@ -1,136 +1,133 @@
+import { OpenAI } from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 /**
- * Processes messages with GPT and returns a response, summary, and mood analysis.
- *
- * @param messages - Array of previous messages in the conversation
- * @param latestMessage - The newest message from the user to process
- * @returns Object containing response text, conversation summary, and mood analysis
+ * Process messages with GPT and return structured response
+ * @param messages Previous conversation messages
+ * @param latestMessage Latest user message
+ * @returns Object containing AI response, conversation summary, and mood score
  */
 export async function processMessageWithGPT(
   messages: any[],
   latestMessage: string,
 ) {
-  // TODO: Replace this with actual GPT API call
-  // This is a placeholder implementation that simulates GPT responses
+  try {
+    const formattedMessages = formatMessages(messages, latestMessage);
 
-  const response = getSimpleResponse(latestMessage);
-  const summary = generateConversationSummary(messages, latestMessage);
+    const maxTokensPerRequest = 8192;
+    const trimmedMessages = trimMessagesToFitTokenLimit(
+      formattedMessages,
+      maxTokensPerRequest,
+    );
+    console.log(`Processing ${trimmedMessages.length} messages with GPT`);
 
-  const { score } = analyzeMood(latestMessage);
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-turbo",
+      messages: trimmedMessages,
+      temperature: 0.7,
+      response_format: { type: "json_object" },
+    });
 
-  return {
-    response,
-    summary,
-    mood_score: score,
+    const parsedResponse = JSON.parse(
+      response.choices[0].message.content || "{}",
+    );
+
+    return {
+      response:
+        parsedResponse.response ||
+        "I'm sorry, I couldn't generate a response right now.",
+      summary: parsedResponse.summary || "No summary available.",
+      mood_score:
+        parsedResponse.mood_score !== undefined
+          ? parsedResponse.mood_score
+          : 50,
+    };
+  } catch (error) {
+    console.error("Error processing message with GPT:", error);
+    return {
+      response:
+        "I'm experiencing some technical difficulties. Please try again later.",
+      summary: "Conversation interrupted due to technical issues.",
+      mood_score: 50,
+    };
+  }
+}
+
+/**
+ * Format the conversation history into OpenAI message format
+ */
+function formatMessages(messages: any[], latestMessage: string) {
+  const systemPrompt = {
+    role: "system",
+    content: `You are a supportive AI assistant designed to engage in therapeutic conversations.
+    Your responses should be empathetic, thoughtful, and aimed at supporting the user's emotional wellbeing.
+
+    Respond in JSON format with three fields:
+    1. "response": Your actual response to the user (empathetic and supportive)
+    2. "summary": A brief summary of the conversation so far (1-2 sentences)
+    3. "mood_score": A numerical assessment of the user's mood (0-100, where 0 is extremely negative, 50 is neutral, 100 is extremely positive)
+
+    Keep your responses conversational and human-like while being therapeutically appropriate.`,
   };
-}
 
-/**
- * Simple response function - will be replaced with actual GPT API call
- */
-function getSimpleResponse(text: string): string {
-  const lowerText = text.toLowerCase();
+  const formattedPreviousMessages = messages.map((msg) => ({
+    role: msg.isBot ? "assistant" : "user",
+    content: msg.text,
+  }));
 
-  if (lowerText.includes("hello") || lowerText.includes("hi")) {
-    return "Hello! How can I help you today?";
-  } else if (lowerText.includes("sad") || lowerText.includes("depressed")) {
-    return "I'm sorry to hear you're feeling down. Would you like to talk about what's bothering you?";
-  } else if (lowerText.includes("happy") || lowerText.includes("good")) {
-    return "I'm glad to hear you're doing well! What has been going well for you?";
-  } else if (lowerText.includes("anxious") || lowerText.includes("worried")) {
-    return "It sounds like you're experiencing some anxiety. Would it help to talk through what's on your mind?";
-  } else {
-    return "Thank you for sharing. Can you tell me more about how you're feeling?";
-  }
-}
-
-/**
- * Generates a simple summary of the conversation based on the messages
- */
-function generateConversationSummary(
-  messages: any[],
-  latestMessage: string,
-): string {
-  if (messages.length <= 2) {
-    return "Conversation just started.";
-  }
-
-  const keywords = {
-    positive: ["happy", "good", "great", "excellent", "wonderful", "pleased"],
-    negative: ["sad", "depressed", "unhappy", "anxious", "worried", "stressed"],
-    neutral: ["okay", "fine", "alright", "so-so"],
-  };
-
-  let positiveCount = 0;
-  let negativeCount = 0;
-  let neutralCount = 0;
-
-  const userMessages = messages.filter((msg) => !msg.isBot);
-  userMessages.forEach((message) => {
-    const text = message.text.toLowerCase();
-
-    keywords.positive.forEach((word) => {
-      if (text.includes(word)) positiveCount++;
-    });
-
-    keywords.negative.forEach((word) => {
-      if (text.includes(word)) negativeCount++;
-    });
-
-    keywords.neutral.forEach((word) => {
-      if (text.includes(word)) neutralCount++;
-    });
-  });
-
-  // Generate a basic summary based on the emotional content
-  if (positiveCount > negativeCount && positiveCount > neutralCount) {
-    return "User is expressing generally positive emotions in this conversation.";
-  } else if (negativeCount > positiveCount && negativeCount > neutralCount) {
-    return "User is expressing some concerns or negative emotions in this conversation.";
-  } else if (neutralCount > positiveCount && neutralCount > negativeCount) {
-    return "User is expressing mainly neutral sentiments in this conversation.";
-  } else {
-    return "Mixed emotional content in this conversation.";
-  }
-}
-
-/**
- * Analyzes the mood of the conversation based on the messages
- * Returns a score (0-100)
- */
-function analyzeMood(latestMessage: string): { score: number } {
-  const userText = latestMessage.toLowerCase();
-
-  let score = 50;
-
-  const positiveWords = [
-    "happy",
-    "good",
-    "great",
-    "excellent",
-    "wonderful",
-    "pleased",
-    "joy",
-    "excitement",
+  return [
+    systemPrompt,
+    ...formattedPreviousMessages,
+    { role: "user", content: latestMessage },
   ];
-  positiveWords.forEach((word) => {
-    if (userText.includes(word)) score += 10;
-  });
+}
 
-  const negativeWords = [
-    "sad",
-    "depressed",
-    "unhappy",
-    "anxious",
-    "worried",
-    "stressed",
-    "angry",
-    "upset",
-  ];
-  negativeWords.forEach((word) => {
-    if (userText.includes(word)) score -= 10;
-  });
+/**
+ * Trim message history to fit within token limits
+ * Keeps system prompt, recent messages, and latest user message
+ */
+function trimMessagesToFitTokenLimit(messages: any[], maxTokens: number) {
+  // Very rough token estimation (4 chars ≈ 1 token)
+  const estimateTokens = (text: string) => Math.ceil(text.length / 4);
 
-  score = Math.max(0, Math.min(100, score));
+  const systemPrompt = messages[0];
+  const latestMessage = messages[messages.length - 1];
 
-  return { score };
+  const systemTokens = estimateTokens(systemPrompt.content);
+  const latestTokens = estimateTokens(latestMessage.content);
+
+  const reservedTokens = 1000;
+
+  const remainingTokens =
+    maxTokens - systemTokens - latestTokens - reservedTokens;
+
+  if (remainingTokens <= 0) {
+    return [systemPrompt, latestMessage];
+  }
+
+  let result = [systemPrompt];
+  let usedTokens = systemTokens;
+
+  for (let i = messages.length - 2; i > 0; i--) {
+    const messageTokens = estimateTokens(messages[i].content);
+    if (usedTokens + messageTokens <= remainingTokens) {
+      result.push(messages[i]);
+      usedTokens += messageTokens;
+    } else {
+      break;
+    }
+  }
+
+  result.push(latestMessage);
+
+  if (result.length < messages.length) {
+    console.log(
+      `Trimmed conversation history from ${messages.length} to ${result.length} messages to fit token limit`,
+    );
+  }
+
+  return result;
 }
