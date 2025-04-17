@@ -22,7 +22,6 @@ export async function processMessageWithGPT(
       formattedMessages,
       maxTokensPerRequest,
     );
-    console.log(`Processing ${trimmedMessages.length} messages with GPT`);
 
     const response = await openai.chat.completions.create({
       model: "gpt-4-turbo",
@@ -49,7 +48,7 @@ export async function processMessageWithGPT(
     console.error("Error processing message with GPT:", error);
     return {
       response:
-        "I'm experiencing some technical difficulties. Please try again later.",
+        "I'm experiencing some technical difficulties. Please try again later or contact Admin.",
       summary: "Conversation interrupted due to technical issues.",
       mood_score: 50,
     };
@@ -122,12 +121,6 @@ function trimMessagesToFitTokenLimit(messages: any[], maxTokens: number) {
   }
 
   result.push(latestMessage);
-
-  if (result.length < messages.length) {
-    console.log(
-      `Trimmed conversation history from ${messages.length} to ${result.length} messages to fit token limit`,
-    );
-  }
 
   return result;
 }
