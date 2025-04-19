@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
+import { v4 as uuidv4 } from "uuid";
 
 import ChatBox from "~/components/Chat/Box";
 import ChatInput from "~/components/Chat/Input";
@@ -128,7 +129,7 @@ export default function Chat() {
       const data = fetcher.data as ResponseData;
 
       const botMessage: Message = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         text: data.botResponse,
         isBot: true,
         timestamp: new Date(),
@@ -145,7 +146,7 @@ export default function Chat() {
     if (!text.trim()) return;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       text,
       isBot: false,
       timestamp: new Date(),
