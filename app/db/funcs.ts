@@ -116,7 +116,7 @@ async function applySessionUpdate(
 }
 
 /**
- * Registers a device by updating its last seen timestamp or creating a new record if it doesn’t exist.
+ * Registers a device by updating its last seen timestamp or creating a new record if it doesn't exist.
  *
  * @param {string} deviceId - The unique device identifier.
  * @returns {Promise<Device|null>} The device record or null on failure.
@@ -179,10 +179,10 @@ export async function setDeviceIdForRequest(
 
 /**
  * Get All the Session Data for the specified user
+ * Checks for any pending session updates and applies them before returning data
  *
  * @param {string} deviceId - The unique device identifier.
- * @returns {Promise<ChatSession[]|null>} The updated session data or null on failure.
- *
+ * @returns {Promise<ChatSession[]|null>} The chat sessions data or null on failure.
  */
 export async function getChatSessions(
   deviceId: string,
@@ -191,9 +191,44 @@ export async function getChatSessions(
     .from("chat_sessions")
     .select("*")
     .match({ device_id: deviceId });
+
   if (error) {
     console.error("Error getting chat sessions:", error);
     return null;
+  }
+
+  if (!data || data.length === 0) {
+    return data;
+  }
+
+  const sessionsToUpdate: string[] = [];
+
+  // Check for any pending updates and apply them to in-memory data
+  for (let i = 0; i < data.length; i++) {
+    const session = data[i];
+    if (pendingSessionUpdates.has(session.id)) {
+      const pendingUpdate = pendingSessionUpdates.get(session.id)!;
+
+      // Update the in-memory session data with pending values
+      data[i] = {
+        ...session,
+        summary: pendingUpdate.summary,
+        mood_score: pendingUpdate.mood_score,
+        end_time: new Date().toISOString(),
+      };
+
+      sessionsToUpdate.push(session.id);
+    }
+  }
+
+  if (sessionsToUpdate.length > 0) {
+    console.log(
+      `Applying pending updates for ${sessionsToUpdate.length} sessions due to getChatSessions call`,
+    );
+
+    for (const sessionId of sessionsToUpdate) {
+      await applySessionUpdate(sessionId);
+    }
   }
 
   return data;
