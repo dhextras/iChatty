@@ -17,6 +17,7 @@ export type ChatSession = {
 export type ResponseData = {
   botResponse: string;
   summary: string;
+  sessionId: string;
   mood: {
     score: number;
   };

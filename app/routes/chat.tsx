@@ -38,8 +38,6 @@ export const loader: LoaderFunction = async ({ request }) => {
   await registerDevice(deviceId);
   await setDeviceIdForRequest(deviceId);
 
-  const chatSession = await startChatSession(deviceId);
-
   const initialMessage = {
     id: "initial",
     text: "__GREETING_PLACEHOLDER__",
@@ -50,7 +48,7 @@ export const loader: LoaderFunction = async ({ request }) => {
   return json(
     {
       initialMessage,
-      chatSessionId: chatSession?.id || null,
+      deviceId,
     },
     {
       headers: {
@@ -65,17 +63,28 @@ export const action: ActionFunction = async ({ request }) => {
   const text = formData.get("message") as string;
   const sessionId = formData.get("sessionId") as string;
   const messagesJson = formData.get("messages") as string;
+  const deviceId = formData.get("deviceId") as string;
+  const isFirstMessage = formData.get("isFirstMessage") === "true";
+
+  // If this is the first message and no session exists yet, create one
+  let activeSessionId: string | null =
+    typeof sessionId === "string" ? sessionId : null;
+  if (isFirstMessage) {
+    const chatSession = await startChatSession(deviceId);
+    activeSessionId = chatSession?.id || null;
+  }
 
   const messages = JSON.parse(messagesJson);
   const result = await processMessageWithGPT(messages, text);
 
-  if (sessionId && result.summary && result.mood_score !== undefined) {
-    await updateChatSession(sessionId, result.summary, result.mood_score);
+  if (activeSessionId && result.summary && result.mood_score !== undefined) {
+    await updateChatSession(activeSessionId, result.summary, result.mood_score);
   }
 
   return json({
     botResponse: result.response,
     summary: result.summary,
+    sessionId: activeSessionId,
     mood: {
       score: result.mood_score,
     },
@@ -89,10 +98,12 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const loaderData = useLoaderData<typeof loader>();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
 
   useEffect(() => {
-    if (loaderData.initialMessage && loaderData.chatSessionId) {
+    if (loaderData.initialMessage && loaderData.deviceId) {
       const now = new Date();
       const hour = now.getHours();
 
@@ -113,9 +124,9 @@ export default function Chat() {
       };
 
       setMessages([formattedInitialMessage]);
-      setSessionId(loaderData.chatSessionId);
+      setDeviceId(loaderData.deviceId);
     }
-  }, [loaderData.initialMessage?.id, loaderData.chatSessionId]);
+  }, [loaderData.initialMessage?.id, loaderData.deviceId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -127,6 +138,11 @@ export default function Chat() {
     } else if (fetcher.data && fetcher.state === "loading") {
       setIsTyping(false);
       const data = fetcher.data as ResponseData;
+
+      // If we get back a session ID from the action, update our state
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
 
       const botMessage: Message = {
         id: uuidv4(),
@@ -140,10 +156,15 @@ export default function Chat() {
         inputRef.current.focus();
       }
     }
-  }, [fetcher.state, fetcher.data]);
+  }, [fetcher.state, fetcher.data, sessionId]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
+
+    const isFirstMessage = !hasUserSentMessage;
+    if (isFirstMessage) {
+      setHasUserSentMessage(true);
+    }
 
     const userMessage: Message = {
       id: uuidv4(),
@@ -159,6 +180,8 @@ export default function Chat() {
       {
         message: text,
         sessionId: sessionId || "",
+        deviceId: deviceId || "",
+        isFirstMessage: isFirstMessage.toString(),
         messages: JSON.stringify(
           updatedMessages.map((msg) => ({
             text: msg.text,
