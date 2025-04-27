@@ -47,43 +47,44 @@ export default function App() {
   );
 }
 
-// This catches unexpected errors (like a 404 or server error)
 export function ErrorBoundary() {
   const error = useRouteError();
-
   console.error(error);
 
+  let title = "Unexpected Error";
+  let message = "Something went wrong. Please try refreshing the page.";
+
   if (isRouteErrorResponse(error)) {
-    return (
-      <html>
-        <head>
-          <title>
-            {error.status} {error.statusText}
-          </title>
-          <Meta />
-          <Links />
-        </head>
-        <body>
-          <h1>
-            {error.status} - {error.statusText}
-          </h1>
-          <p>{error.data || "Something went wrong. Refresh..."}</p>
-          <Scripts />
-        </body>
-      </html>
-    );
+    title = `${error.status} - ${error.statusText}`;
+    message = error.data || "Something went wrong. Refresh...";
+  } else if (error instanceof Error) {
+    message = error.message;
   }
 
   return (
-    <html>
+    <html lang="en" className="h-full">
       <head>
-        <title>Unexpected Error</title>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{title}</title>
         <Meta />
         <Links />
       </head>
-      <body>
-        <h1>Unexpected Error</h1>
-        <p>{error instanceof Error ? error.message : "Unknown error"}</p>
+      <body className="flex h-full flex-col bg-secondary text-textPrimary">
+        <Header />
+        <main className="flex flex-grow flex-col items-center justify-center overflow-auto p-8">
+          <div className="max-w-md text-center">
+            <h1 className="mb-4 text-3xl font-bold">{title}</h1>
+            <p className="mb-6">{message}</p>
+            <a
+              href="/"
+              className="inline-block rounded-md bg-primary px-6 py-2 text-white transition-colors hover:bg-opacity-90"
+            >
+              Return to Home
+            </a>
+          </div>
+        </main>
+        <ScrollRestoration />
         <Scripts />
       </body>
     </html>
