@@ -99,34 +99,46 @@ export default function Chat() {
   const loaderData = useLoaderData<typeof loader>();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(true);
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
+  const [initialMessageSent, setInitialMessageSent] = useState(false);
 
   useEffect(() => {
-    if (loaderData.initialMessage && loaderData.deviceId) {
-      const now = new Date();
-      const hour = now.getHours();
-
-      let greeting = "Hello";
-      if (hour < 12) greeting = "Good morning";
-      else if (hour < 18) greeting = "Good afternoon";
-      else greeting = "Good evening";
-
-      const initialMessageText = loaderData.initialMessage.text.replace(
-        "__GREETING_PLACEHOLDER__",
-        `${greeting}! How are you feeling today?`,
-      );
-
-      const formattedInitialMessage = {
-        ...loaderData.initialMessage,
-        text: initialMessageText,
-        timestamp: new Date(loaderData.initialMessage.timestamp),
-      };
-
-      setMessages([formattedInitialMessage]);
+    if (
+      loaderData.initialMessage &&
+      loaderData.deviceId &&
+      !initialMessageSent
+    ) {
       setDeviceId(loaderData.deviceId);
+
+      const timer = setTimeout(() => {
+        const now = new Date();
+        const hour = now.getHours();
+
+        let greeting = "Hello";
+        if (hour < 12) greeting = "Good morning";
+        else if (hour < 18) greeting = "Good afternoon";
+        else greeting = "Good evening";
+
+        const initialMessageText = loaderData.initialMessage.text.replace(
+          "__GREETING_PLACEHOLDER__",
+          `${greeting}! How are you feeling today?`,
+        );
+
+        const formattedInitialMessage = {
+          ...loaderData.initialMessage,
+          text: initialMessageText,
+          timestamp: new Date(loaderData.initialMessage.timestamp),
+        };
+
+        setMessages([formattedInitialMessage]);
+        setIsTyping(false);
+        setInitialMessageSent(true);
+      }, 500);
+
+      return () => clearTimeout(timer);
     }
-  }, [loaderData.initialMessage?.id, loaderData.deviceId]);
+  }, [loaderData.initialMessage, loaderData.deviceId, initialMessageSent]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
