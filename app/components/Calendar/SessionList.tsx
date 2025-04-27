@@ -9,8 +9,12 @@ type SessionListProps = {
 
 const SessionList = ({ sessions }: SessionListProps) => {
   const formatDateTime = (dateString: string): string => {
-    const date = parseISO(dateString);
-    return format(date, "MM-dd h:mm a");
+    try {
+      const parsed = parseISO(dateString);
+      return format(parsed, "yyyy-MM-dd HH:mm:ss");
+    } catch (err) {
+      return `Invalid date: ${dateString}, ${err}`;
+    }
   };
 
   const getMoodColor = (score: number | undefined): string => {
