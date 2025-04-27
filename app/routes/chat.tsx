@@ -168,7 +168,7 @@ export default function Chat() {
         inputRef.current.focus();
       }
     }
-  }, [fetcher.state, fetcher.data, sessionId]);
+  }, [fetcher.state, fetcher.data]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
